@@ -2,13 +2,10 @@ name: Build ImmortalWrt for H3C NX30 Pro
 
 on:
   workflow_dispatch:
-  # 取消下面的注释可定时每周日自动编译
-  # schedule:
-  #   - cron: 0 19 * * 0
 
 env:
   REPO_URL: https://github.com/shhhulisten/newimmortalwrt-mt798x-6.6
-  REPO_BRANCH: main
+  REPO_BRANCH: master
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: nx30pro.config
   DIY_P1_SH: diy-part1.sh
@@ -48,7 +45,7 @@ jobs:
       working-directory: /workdir
       run: |
         df -h
-        git clone $REPO_URL -b $REPO_BRANCH openwrt
+        git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
     - name: 执行自定义脚本 DIY-Part1 (添加 Feeds 源)
@@ -64,7 +61,7 @@ jobs:
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
-    - name: 执行自定义脚本 DIY-Part2 (配置与组件调整)
+    - name: 执行自定义脚本 DIY-Part2 (检查与更新依赖版本)
       run: |
         chmod +x $DIY_P2_SH
         cd openwrt
@@ -101,11 +98,10 @@ jobs:
 
     - name: 上传固件至 GitHub Releases
       uses: softprops/action-gh-release@v2
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      if: env.UPLOAD_RELEASE == 'true' && steps.compile.outputs.status == 'success' && !cancelled()
       with:
-        tag_name: ImmortalWrt_NX30Pro_${{ env.COMPILE_DATE }}
-        name: ImmortalWrt NX30 Pro [${{ env.COMPILE_DATE }}]
+        tag_name: ImmortalWrt_NX30Pro_${{ github.run_id }}
+        name: ImmortalWrt NX30 Pro Build-${{ github.run_id }}
         files: ${{ env.FIRMWARE }}/*.*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        COMPILE_DATE: ${{ steps.compile.outputs.status && format('{0}', github.run_id) }}
